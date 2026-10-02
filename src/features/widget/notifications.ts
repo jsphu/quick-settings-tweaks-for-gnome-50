@@ -1,6 +1,8 @@
 import GObject from "gi://GObject"
 import St from "gi://St"
 import Clutter from "gi://Clutter"
+import Gio from "gi://Gio"
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js"
 import * as MessageList from "resource:///org/gnome/shell/ui/messageList.js"
 import { gettext as _ } from "resource:///org/gnome/shell/extensions/extension.js"
 import { type DoNotDisturbSwitch } from "resource:///org/gnome/shell/ui/calendar.js"
@@ -116,12 +118,25 @@ namespace Header {
 }
 // #endregion Header
 
+const FallbackDndSwitch = GObject.registerClass(
+class FallbackDndSwitch extends PopupMenu.Switch {
+	_init() {
+		super._init(false)
+		const settings = new Gio.Settings({
+			schema_id: "org.gnome.desktop.notifications",
+		})
+		settings.bind("show-banners",
+			this, "state",
+			Gio.SettingsBindFlags.INVERT_BOOLEAN)
+	}
+})
+
 // #region NativeControl
 class NativeControl extends St.BoxLayout {
 	_clearButton: St.Button
 	_dndButton: St.Button
 	_dndLabel: St.Label
-	_dndSwitch: DoNotDisturbSwitch
+	_dndSwitch: any
 
 	_init() {
 		// See : https://github.com/GNOME/gnome-shell/blob/934dbe549567f87d7d6deb6f28beaceda7da1d46/js/ui/calendar.js#L979
@@ -130,7 +145,10 @@ class NativeControl extends St.BoxLayout {
 		} as Partial<St.BoxLayout.ConstructorProps>)
 
 		// DND Switch
-		this._dndSwitch = new (Global.MessageList._dndSwitch.constructor as any)() // Calendar.DoNotDisturbSwitch();
+		const dndSwitchConstructor = (Global.MessageList as any)?._dndSwitch?.constructor
+		this._dndSwitch = dndSwitchConstructor
+			? new (dndSwitchConstructor as any)()
+			: new FallbackDndSwitch()
 		this._dndSwitch.style_class += " QSTWEAKS-native-dnd-switch"
 		
 		// DND Label
